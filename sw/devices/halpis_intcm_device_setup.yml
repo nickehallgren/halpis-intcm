@@ -1,0 +1,541 @@
+- name: HALPIS Intercom Device Setup
+  hosts: localhost
+  become: yes
+  connection: local
+
+  vars:
+    user_home: "{{ lookup('env', 'HOME') }}"
+    current_user: "{{ lookup('env', 'USER') }}"
+    ic_venv: "{{ user_home }}/.intcm-venv"
+
+  vars_prompt:
+    - name: device_type
+      prompt: "Select the device type (beltpack or basestation)"
+      private: no
+    - name: ca_cert_confirm
+      prompt: "Have you copied the MQTT server ca.crt to '{{ playbook_dir }}/halpis_intcm_setup/ca.crt'? (yes/no)"
+      private: no
+    - name: certs_confirm
+      prompt: "Have you copied your created Mumble certificates into '{{ playbook_dir }}/halpis_intcm_setup/certs'? (yes/no)"
+      private: no
+    - name: mqtt_server_ip
+      prompt: "Enter the MQTT server IP address"
+      private: no
+    - name: mqtt_username
+      prompt: "Enter the MQTT username"
+      private: no
+    - name: mqtt_password
+      prompt: "Enter the MQTT password"
+      private: yes
+    - name: vnc_password
+      prompt: "Set VNC password"
+      private: yes
+
+  pre_tasks:
+    - name: Validate user confirmed CA cert
+      fail:
+        msg: "You must confirm that ca.crt at '{{ playbook_dir }}/halpis_intcm_setup/ca.crt' is correct."
+      when: ca_cert_confirm != 'yes'
+
+    - name: Validate CA cert file exists
+      stat:
+        path: "{{ playbook_dir }}/halpis_intcm_setup/ca.crt"
+      register: ca_cert_file
+
+    - name: Fail if ca.crt missing
+      fail:
+        msg: "ca.crt file not found at '{{ playbook_dir }}/halpis_intcm_setup/ca.crt'. Please copy it."
+      when: not ca_cert_file.stat.exists
+
+    - name: Validate user confirmed Mumble certs
+      fail:
+        msg: "You must confirm that the certificates exist in '{{ playbook_dir }}/halpis_intcm_setup/certs'."
+      when: certs_confirm != 'yes'
+
+  tasks:
+    - name: Update mqtt_server in config file
+      replace:
+        path: "{{ playbook_dir }}/halpis_intcm_setup/config_{{ 'bp' if device_type == 'beltpack' else 'bs' }}.json5"
+        regexp: "(\\s*)mqtt_server:\\s*'[^']*'"
+        replace: "\\1mqtt_server: '{{ mqtt_server_ip }}'"
+
+    - name: Update mqtt_user in config file
+      replace:
+        path: "{{ playbook_dir }}/halpis_intcm_setup/config_{{ 'bp' if device_type == 'beltpack' else 'bs' }}.json5"
+        regexp: "(\\s*)mqtt_user:\\s*'[^']*'"
+        replace: "\\1mqtt_user: '{{ mqtt_username }}'"
+
+    - name: Update mqtt_pass in config file
+      replace:
+        path: "{{ playbook_dir }}/halpis_intcm_setup/config_{{ 'bp' if device_type == 'beltpack' else 'bs' }}.json5"
+        regexp: "(\\s*)mqtt_pass:\\s*'[^']*'"
+        replace: "\\1mqtt_pass: '{{ mqtt_password }}'"
+
+    - name: Update tls_certificate_path in config file
+      replace:
+        path: "{{ playbook_dir }}/halpis_intcm_setup/config_{{ 'bp' if device_type == 'beltpack' else 'bs' }}.json5"
+        regexp: "(\\s*)tls_certificate_path:\\s*'[^']*'"
+        replace: "\\1tls_certificate_path: '{{ user_home }}/halpis_intcm/ca.crt'"
+
+    - name: Update font_path in config file
+      replace:
+        path: "{{ playbook_dir }}/halpis_intcm_setup/config_{{ 'bp' if device_type == 'beltpack' else 'bs' }}.json5"
+        regexp: "(\\s*)font_path:\\s*'[^']*'"
+        replace: "\\1font_path: '{{ user_home }}/halpis_intcm/fonts/VeraMoBd.ttf'"
+
+    - name: Update log_file in config file
+      replace:
+        path: "{{ playbook_dir }}/halpis_intcm_setup/config_{{ 'bp' if device_type == 'beltpack' else 'bs' }}.json5"
+        regexp: "(\\s*)log_file:\\s*'[^']*'"
+        replace: "\\1log_file: '{{ user_home }}/halpis_intcm/intercom.log'"
+
+    - name: Update and upgrade system packages
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install required packages
+      apt:
+        name:
+          - flatpak
+          - i2c-tools
+          - jq
+          - lightdm
+          - lightdm-gtk-greeter
+          - lxterminal
+          - pavucontrol
+          - pulseaudio
+          - python3-dev
+          - python3-pip
+          - python3-tk
+          - python3-venv
+          - rsync
+          - x11-xserver-utils
+          - x11vnc
+          - xdotool
+          - xserver-xorg-video-dummy
+          - xfce4
+          - xscreensaver
+          - zram-tools
+        update_cache: yes
+        state: present
+
+    - name: Ensure LightDM config directory exists
+      file:
+        path: /etc/lightdm/lightdm.conf.d
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Ensure Xorg config directory exists
+      file:
+        path: /etc/X11/xorg.conf.d
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Set up dummy Xorg configuration
+      copy:
+        dest: /etc/X11/xorg.conf.d/10-dummy.conf
+        content: |
+          Section "Monitor"
+              Identifier "Monitor0"
+              HorizSync 28.0-80.0
+              VertRefresh 48.0-75.0
+              Modeline "1280x720" 74.25 1280 1390 1430 1650 720 725 730 750 -hsync +vsync
+          EndSection
+
+          Section "Device"
+              Identifier "Card0"
+              Driver "dummy"
+              VideoRam 256000
+          EndSection
+
+          Section "Screen"
+              Identifier "Screen0"
+              Device "Card0"
+              Monitor "Monitor0"
+              DefaultDepth 24
+              SubSection "Display"
+                  Depth 24
+                  Modes "1280x720"
+              EndSubSection
+          EndSection
+        mode: '0644'
+        owner: root
+        group: root
+
+    - name: Disable built-in audio
+      lineinfile:
+        path: /boot/firmware/config.txt
+        regexp: '^dtparam=audio='
+        line: 'dtparam=audio=off'
+
+    - name: Blacklist HDMI audio kernel module
+      copy:
+        dest: /etc/modprobe.d/blacklist-hdmi.conf
+        content: |
+          blacklist snd_hda_codec_hdmi
+        mode: '0644'
+        owner: root
+        group: root
+
+    - name: Update initramfs
+      command: update-initramfs -u
+
+    - name: Enable I2C
+      blockinfile:
+        path: /boot/firmware/config.txt
+        marker: "# {mark} HALPIS I2C"
+        block: |
+          dtparam=i2c_arm=on
+          dtparam=i2c_arm_baudrate=400000
+
+    - name: Enable SPI if device is basestation
+      blockinfile:
+        path: /boot/firmware/config.txt
+        marker: "# {mark} HALPIS SPI"
+        block: |
+          dtparam=spi=on
+      when: device_type == 'basestation'
+
+    - name: Ensure i2c-dev and spi-dev modules
+      lineinfile:
+        path: /etc/modules
+        line: "{{ item }}"
+        state: present
+      loop:
+        - i2c-dev
+        - "{{ 'spi-dev' if device_type == 'basestation' else '' }}"
+      when: item != ''
+
+    - name: Add current user to video and tty groups
+      user:
+        name: "{{ current_user }}"
+        groups: video,tty
+        append: yes
+
+    - name: Create Python virtual environment
+      command: python3 -m venv {{ ic_venv }}
+      args:
+        creates: "{{ ic_venv }}"
+      become: no
+
+    - name: Install Python packages
+      pip:
+        virtualenv: "{{ ic_venv }}"
+        name: >
+          {{
+            (
+              ([ 'ADS1115' ] if device_type == 'beltpack' else [])
+              + [
+                'json5',
+                'luma.core',
+                'luma.oled',
+                'paho-mqtt',
+                'pip',
+                'pyautogui',
+                'rpi-lgpio',
+                'setuptools'
+              ]
+            ) | reject('equalto', '') | sort(attribute=None)
+          }}
+        state: latest
+      become: no
+
+    - name: Copy needed HALPIS INTCM files
+      synchronize:
+        src: halpis_intcm_setup/
+        dest: "{{ user_home }}/halpis_intcm/"
+        recursive: yes
+        rsync_opts:
+          - "--include=ca.crt"
+          - "--include=config_{{ 'bp' if device_type == 'beltpack' else 'bs' }}.json5"
+          - "--include=ic_{{ 'beltpack' if device_type == 'beltpack' else 'basestation' }}.py"
+          - "--include=ic_button.py"
+          - "--include=ic_config.py"
+          - "--include=ic_display.py"
+          - "--include=ic_encoder.py"
+          - "--include=ic_menu_{{ 'bp' if device_type == 'beltpack' else 'bs' }}.py"
+          - "{{ '--include=ic_ads1115.py' if device_type == 'beltpack' else '--include=ic_neopixel.py --include=ic_tca9548a.py' }}"
+          - "--include=ic.py"
+          - "--include=certs/***"
+          - "--include=fonts/***"
+          - "--exclude=*"
+
+    - name: Create intercom.log file
+      file:
+        path: "{{ user_home }}/halpis_intcm/intercom.log"
+        state: touch
+        owner: "{{ current_user }}"
+        group: "{{ current_user }}"
+        mode: '0644'
+
+    - name: Ensure .vnc directory exists
+      file:
+        path: "{{ user_home }}/.vnc"
+        state: directory
+        mode: '0700'
+        owner: "{{ current_user }}"
+        group: "{{ current_user }}"
+      become: no
+
+    - name: Store VNC password non-interactively
+      shell: x11vnc -storepasswd '{{ vnc_password }}' '{{ user_home }}/.vnc/passwd'
+      args:
+        creates: "{{ user_home }}/.vnc/passwd"
+      become: no
+      no_log: true
+
+    - name: Add Flathub remote if not exists
+      become: no
+      shell: |
+        flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+      args:
+        executable: /bin/bash
+
+    - name: Install Mumble from Flathub if not already installed
+      become: no
+      shell: |
+        if ! flatpak list --app | grep -q info.mumble.Mumble; then
+          flatpak install --noninteractive --user flathub info.mumble.Mumble
+        else
+          echo "Mumble already installed."
+        fi
+      args:
+        executable: /bin/bash
+
+    - name: Grant Flatpak Mumble read-write access to certs folder
+      become: no
+      command: >
+        flatpak override --user
+        --filesystem={{ user_home }}/halpis_intcm/certs
+        info.mumble.Mumble
+
+    - name: Create script to set mumble_has_quit_normally true
+      copy:
+        dest: "{{ user_home }}/set_mumble_flag.sh"
+        content: |
+          #!/bin/bash
+          JSON_FILE="{{ user_home }}/.var/app/info.mumble.Mumble/config/Mumble/Mumble/mumble_settings.json"
+          KEY="mumble_has_quit_normally"
+          if [ -f "$JSON_FILE" ]; then
+              tmp=$(mktemp)
+              jq --arg key "$KEY" '.[$key] = true' "$JSON_FILE" > "$tmp" && mv "$tmp" "$JSON_FILE"
+          fi
+        mode: '0755'
+        owner: "{{ current_user }}"
+        group: "{{ current_user }}"
+      become: no
+
+    - name: Ensure systemd user directory exists
+      file:
+        path: "{{ user_home }}/.config/systemd/user"
+        state: directory
+        owner: "{{ current_user }}"
+        group: "{{ current_user }}"
+        mode: '0755'
+      become: no
+
+    - name: Create script to set mumble_has_quit_normally to true
+      copy:
+        dest: "{{ user_home }}/set_mumble_flag.sh"
+        content: |
+          #!/bin/bash
+          JSON_FILE="{{ user_home }}/.var/app/info.mumble.Mumble/config/Mumble/Mumble/mumble_settings.json"
+          KEY="mumble_has_quit_normally"
+          if [ -f "$JSON_FILE" ]; then
+              tmp=$(mktemp)
+              jq --arg key "$KEY" '.[$key] = true' "$JSON_FILE" > "$tmp" && mv "$tmp" "$JSON_FILE"
+          fi
+        owner: "{{ current_user }}"
+        group: "{{ current_user }}"
+        mode: '0755'
+      become: no
+
+    - name: Create systemd user service for setting Mumble flag
+      copy:
+        dest: "{{ user_home }}/.config/systemd/user/set-mumble-flag.service"
+        content: |
+          [Unit]
+          Description=Set mumble_has_quit_normally true on login
+          After=graphical.target
+
+          [Service]
+          Type=oneshot
+          ExecStart={{ user_home }}/set_mumble_flag.sh
+
+          [Install]
+          WantedBy=default.target
+        owner: "{{ current_user }}"
+        group: "{{ current_user }}"
+        mode: '0644'
+      become: no
+
+    - name: Enable user systemd service for setting Mumble flag
+      become: false
+      become_user: "{{ current_user }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ lookup('ansible.builtin.pipe', 'id -u ' + current_user) }}"
+      shell: |
+        systemctl --user daemon-reexec
+        systemctl --user enable set-mumble-flag.service
+
+    - name: Enable auto-login in LightDM
+      blockinfile:
+        path: /etc/lightdm/lightdm.conf
+        block: |
+          [Seat:*]
+          autologin-user={{ current_user }}
+          autologin-user-timeout=0
+          user-session=xfce
+        create: yes
+
+    - name: Ensure user autostart directory exists
+      file:
+        path: "{{ user_home }}/.config/autostart"
+        state: directory
+        owner: "{{ current_user }}"
+        group: "{{ current_user }}"
+        mode: '0755'
+      become: no
+
+    - name: Create user-specific Mumble autostart .desktop file
+      copy:
+        dest: "{{ user_home }}/.config/autostart/start_mumble.desktop"
+        content: |
+          [Desktop Entry]
+          Type=Application
+          Name=Mumble
+          Exec=flatpak run info.mumble.Mumble
+          X-GNOME-Autostart-enabled=true
+          NoDisplay=false
+          Terminal=false
+          Comment=Start Mumble at login
+        owner: "{{ current_user }}"
+        group: "{{ current_user }}"
+        mode: '0644'
+      become: no
+
+    - name: Create xhost autostart .desktop entry
+      copy:
+        dest: "{{ user_home }}/.config/autostart/xhost.desktop"
+        content: |
+          [Desktop Entry]
+          Type=Application
+          Name=Allow X Access
+          Exec=sh -c 'xhost +SI:localuser:{{ current_user }}'
+          X-GNOME-Autostart-enabled=true
+          NoDisplay=true
+        owner: "{{ current_user }}"
+        group: "{{ current_user }}"
+        mode: '0644'
+      become: no
+
+    - name: Create x11vnc autostart .desktop entry
+      copy:
+        dest: "{{ user_home }}/.config/autostart/x11vnc.desktop"
+        content: |
+          [Desktop Entry]
+          Type=Application
+          Name=Start x11vnc
+          Exec=/usr/bin/x11vnc -display :0 -forever -shared -rfbport 5900 -rfbauth {{ user_home }}/.vnc/passwd
+          X-GNOME-Autostart-enabled=true
+          NoDisplay=false
+          Terminal=false
+          Comment=Start VNC server on login
+        owner: "{{ current_user }}"
+        group: "{{ current_user }}"
+        mode: '0644'
+      become: no
+
+    - name: Create HALPIS Intercom systemd service
+      copy:
+        dest: /etc/systemd/system/halpis_intcm.service
+        content: |
+          [Unit]
+          Description=Start HALPIS Intercom {{ device_type | capitalize }}
+          After=lightdm.service
+          Requires=lightdm.service
+
+          [Service]
+          Type=simple
+          Environment=DISPLAY=:0
+          Environment=XAUTHORITY={{ user_home }}/.Xauthority
+          WorkingDirectory={{ user_home }}/halpis_intcm
+          ExecStart={{ ic_venv }}/bin/python3 {{ user_home }}/halpis_intcm/ic_{{ 'beltpack' if device_type == 'beltpack' else 'basestation' }}.py
+          Restart=on-failure
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Reload systemd
+
+    - name: Configure zram to use 50% of RAM and lz4
+      copy:
+        dest: /etc/default/zramswap
+        content: |
+          ALGO=lz4
+          PERCENT=50
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Enable and start zramswap service
+      systemd:
+        name: zramswap
+        enabled: yes
+        state: started
+
+    - name: Disable dphys-swapfile swap service
+      systemd:
+        name: dphys-swapfile
+        enabled: no
+        state: stopped
+
+    - name: Set CONF_SWAPSIZE=0 in dphys-swapfile config
+      lineinfile:
+        path: /etc/dphys-swapfile
+        regexp: '^CONF_SWAPSIZE='
+        line: 'CONF_SWAPSIZE=0'
+        create: yes
+
+    - name: Remove existing swap file if it exists
+      file:
+        path: /var/swap
+        state: absent
+
+    - name: Suppress .xsession-errors by redirecting X session output
+      copy:
+        dest: /etc/X11/Xsession.d/00-silence-output
+        content: |
+          #!/bin/sh
+          exec >/dev/null 2>&1
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Enable services
+      systemd:
+        name: "{{ item }}"
+        enabled: yes
+      loop:
+        - lightdm
+        - halpis_intcm.service
+
+    - name: Final reminder (echo)
+      shell: |
+        echo ""
+        echo "Setup finished successfully!"
+        echo "Please reboot the device."
+      register: final_message
+
+    - name: Show final reminder output
+      debug:
+        msg: "{{ final_message.stdout_lines }}"
+
+  handlers:
+    - name: Reload systemd
+      command: systemctl daemon-reexec

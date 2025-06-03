@@ -1,0 +1,292 @@
+---
+- name: HALPIS Intercom Server Setup
+  hosts: localhost
+  become: yes
+  connection: local
+  gather_facts: true
+  
+  vars:
+    venv_name: .intcm-venv
+    user_home: "{{ lookup('env', 'HOME') }}"
+    current_user: "{{ lookup('env', 'USER') }}"
+
+  pre_tasks:
+    - name: Check that halpis_intcm_server_setup folder exists
+      stat:
+        path: "{{ playbook_dir }}/halpis_intcm_server_setup"
+      register: halpis_folder
+
+    - name: Abort if halpis_intcm_server_setup does not exist
+      fail:
+        msg: >
+          The folder '{{ playbook_dir }}/halpis_intcm_server_setup' is missing.
+          Please make sure you're running this playbook from the directory that contains it.
+      when: not halpis_folder.stat.exists
+
+  vars_prompt:
+    - name: mumble_server_password
+      prompt: "Set your Mumble server password"
+      private: yes
+    - name: mumble_superuser_password
+      prompt: "Set your Mumble SuperUser password"
+      private: yes
+    - name: intercom_username
+      prompt: "Set the MQTT username"
+      private: no
+    - name: intercom_password
+      prompt: "Set the MQTT password"
+      private: yes
+
+  tasks:
+    - name: Update and upgrade system
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install required packages
+      apt:
+        name:
+          - mumble-server
+          - mosquitto
+          - mosquitto-clients
+          - python3
+          - python3-venv
+          - python3-pip
+        state: present
+
+    - name: Preseed Mumble server configuration
+      shell: |
+        echo "mumble-server mumble-server/start_daemon boolean true" | debconf-set-selections
+        echo "mumble-server mumble-server/use_capabilities boolean true" | debconf-set-selections
+        echo "mumble-server mumble-server/password password {{ mumble_superuser_password }}" | debconf-set-selections
+
+    - name: Reconfigure mumble-server
+      command: dpkg-reconfigure -f noninteractive mumble-server
+
+    - name: Configure mumble-server.ini
+      lineinfile:
+        path: /etc/mumble-server.ini
+        create: yes
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        backrefs: yes
+      loop:
+        - { regexp: '^welcometext=.*', line: 'welcometext="<br /><b>HALPIS INTERCOM.<br />RESTRICTED USE ONLY!</b><br />"' }
+        - { regexp: '^serverpassword=.*', line: "serverpassword={{ mumble_server_password }}" }
+        - { regexp: '^;?bandwidth=.*', line: 'bandwidth=150000' }
+        - { regexp: '^;?registerName=.*', line: 'registerName=HALPIS Intercom' }
+        - { regexp: '^;?autobanAttempts\\s*=.*', line: 'autobanAttempts = 0' }
+        - { regexp: '^;?autobanTimeframe\\s*=.*', line: 'autobanTimeframe = 0' }
+        - { regexp: '^;?autobanTime\\s*=.*', line: 'autobanTime = 300' }
+
+    - name: Restart Mumble server
+      service:
+        name: mumble-server
+        state: restarted
+
+    - name: Create global certs directory
+      file:
+        path: "{{ playbook_dir }}/certs"
+        state: directory
+        mode: '0755'
+
+    - name: Download generate-CA.sh
+      get_url:
+        url: https://raw.githubusercontent.com/owntracks/tools/master/TLS/generate-CA.sh
+        dest: "{{ playbook_dir }}/certs/generate-CA.sh"
+        mode: '0755'
+
+    - name: Insert IPLIST line before set -e
+      lineinfile:
+        path: "{{ playbook_dir }}/certs/generate-CA.sh"
+        insertbefore: '^set -e'
+        line: 'IPLIST="{{ ansible_default_ipv4.address }}"'
+
+    - name: Insert HOSTLIST line before set -e
+      lineinfile:
+        path: "{{ playbook_dir }}/certs/generate-CA.sh"
+        insertbefore: '^set -e'
+        line: 'HOSTLIST="{{ ansible_hostname }}"'
+
+    - name: Set server_days to 10 years
+      replace:
+        path: "{{ playbook_dir }}/certs/generate-CA.sh"
+        regexp: '^server_days=.*'
+        replace: 'server_days=3650'
+
+    - name: Run generate-CA.sh as root
+      command: ./generate-CA.sh
+      args:
+        chdir: "{{ playbook_dir }}/certs"
+
+    - name: Copy certificates to Mosquitto cert dir
+      copy:
+        src: "{{ playbook_dir }}/certs/{{ item }}"
+        dest: "/etc/mosquitto/certs/{{ item }}"
+        owner: root
+        group: root
+        mode: '0644'
+        remote_src: yes
+      loop:
+        - ca.crt
+        - "{{ ansible_fqdn }}.crt"
+        - "{{ ansible_fqdn }}.key"
+
+    - name: Set permissions on Mosquitto cert directory
+      file:
+        path: /etc/mosquitto/certs
+        owner: mosquitto
+        group: mosquitto
+        mode: '0700'
+        recurse: yes
+
+    - name: Set public permissions on ca.crt
+      file:
+        path: /etc/mosquitto/certs/ca.crt
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create Mosquitto TLS configuration
+      copy:
+        dest: "/etc/mosquitto/conf.d/halpis_intcm.conf"
+        content: |
+          user mosquitto
+          queue_qos0_messages false
+          persistent_client_expiration 2h
+          protocol mqtt
+          listener 8883
+          cafile /etc/mosquitto/certs/ca.crt
+          certfile /etc/mosquitto/certs/{{ ansible_fqdn }}.crt
+          keyfile /etc/mosquitto/certs/{{ ansible_fqdn }}.key
+          autosave_interval 1800
+          allow_anonymous false
+          password_file /etc/mosquitto/pwfile
+          acl_file /etc/mosquitto/acl
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Ensure Mosquitto ACL file exists
+      file:
+        path: /etc/mosquitto/acl
+        state: touch
+        owner: mosquitto
+        group: mosquitto
+        mode: '0640'
+
+    - name: Ensure ACL block for Intercom user exists
+      blockinfile:
+        path: /etc/mosquitto/acl
+        block: |
+          user {{ intercom_username }}
+          topic readwrite halpis_intcm/#
+        create: yes
+        owner: root
+        group: root
+        mode: '0644'
+        marker: ""
+
+    - name: Set Intercom MQTT user password
+      shell: |
+        if [ ! -f /etc/mosquitto/pwfile ]; then
+          mosquitto_passwd -c -b /etc/mosquitto/pwfile {{ intercom_username }} {{ intercom_password }}
+        else
+          mosquitto_passwd -b /etc/mosquitto/pwfile {{ intercom_username }} {{ intercom_password }}
+        fi
+
+    - name: Set permissions for pwfile
+      file:
+        path: /etc/mosquitto/pwfile
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Restart Mosquitto to apply changes
+      service:
+        name: mosquitto
+        state: restarted
+
+    - name: Create Python virtual environment
+      command: python3 -m venv {{ user_home }}/{{ venv_name }}
+      args:
+        creates: "{{ user_home }}/{{ venv_name }}"
+      become: no
+
+    - name: Install Python dependencies inside venv
+      shell: |
+        source {{ user_home }}/{{ venv_name }}/bin/activate
+        pip install --upgrade pip
+        pip install paho-mqtt flask flask-socketio eventlet gunicorn
+      args:
+        executable: /bin/bash
+      become: no
+
+    - name: Ensure ~/halpis_intcm_server folder exists
+      file:
+        path: "{{ user_home }}/halpis_intcm_server"
+        state: directory
+        mode: '0755'
+      become: no
+
+    - name: Copy Mosquitto CA certificate to local halpis_intcm_server_setup folder
+      fetch:
+        src: /etc/mosquitto/certs/ca.crt
+        dest: ./halpis_intcm_server_setup/ca.crt
+        flat: yes
+
+    - name: Set Intercom username in main.py
+      replace:
+        path: "{{ playbook_dir }}/halpis_intcm_server_setup/main.py"
+        regexp: '^USERNAME\\s*=\\s*".*"'
+        replace: 'USERNAME = "{{ intercom_username }}"'
+
+    - name: Set Intercom password in main.py
+      replace:
+        path: "{{ playbook_dir }}/halpis_intcm_server_setup/main.py"
+        regexp: '^PASSWORD\\s*=\\s*".*"'
+        replace: 'PASSWORD = "{{ intercom_password }}"'
+
+    - name: Copy app files from halpis_intcm_server_setup to ~/halpis_intcm_server
+      copy:
+        src: "./halpis_intcm_server_setup/"
+        dest: "{{ user_home }}/halpis_intcm_server/"
+        mode: '0755'
+        owner: "{{ current_user }}"
+        group: "{{ current_user }}"
+        remote_src: no
+
+    - name: Create systemd service for halpis_intcm_server
+      copy:
+        dest: /etc/systemd/system/halpis_intcm_server.service
+        content: |
+          [Unit]
+          Description=HALPIS Intercom Server
+          After=network.target
+
+          [Service]
+          Type=simple
+          User={{ current_user }}
+          WorkingDirectory={{ user_home }}/halpis_intcm_server
+          ExecStart={{ user_home }}/{{ venv_name }}/bin/gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:5000 --log-level warning main:app
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+        mode: '0644'
+
+    - name: Reload systemd and enable halpis_intcm_server service
+      systemd:
+        name: halpis_intcm_server
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Notify user that cleanup is optional
+      debug:
+        msg: >
+          Setup complete! The HALPIS Intercom Server service is installed and running as **halpis_intcm_server**.
+
+          You may now delete the Ansible playbook, certs, and setup folder if no errors occurred:
+
+            rm -rf {{ playbook_dir }}/halpis_intcm_server_setup {{ playbook_dir }}/halpis_intcm_server_setup.yml

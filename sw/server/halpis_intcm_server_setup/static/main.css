@@ -1,0 +1,543 @@
+/* ===== Custom Font ===== */
+@font-face {
+  font-family: 'VeraMonoBold';
+  src: url('/static/fonts/VeraMoBd.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+body {
+  font-family: 'VeraMonoBold', 'Courier New', Courier, monospace;
+  margin: 0;
+  font-size: 1rem;
+  background-color: #121212;
+  color: #e0e0e0;
+}
+
+/* ===== Grid Layout ===== */
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 1.25rem;
+  padding: 1.25rem;
+}
+
+/* ===== Device Card ===== */
+.device-card {
+  border: 2px solid #444;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin: 0.75rem;
+  background-color: #1e1e1e;
+  transition: 0.3s ease;
+}
+
+/* ===== Device Type Styling ===== */
+.type-beltpack {
+  border-color: #3498db;
+  background-color: #1b2733;
+}
+
+.type-basestation {
+  border-color: #2ecc71;
+  background-color: #1e3028;
+}
+
+.device-card.type-basestation .device-role {
+  background: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 1.05rem;
+  display: inline-block;
+  margin-top: 0.25rem;
+}
+
+.device-card.type-beltpack .device-role {
+  background: rgba(0, 123, 255, 0.15);
+  color: #3498db;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 1.05rem;
+  display: inline-block;
+  margin-top: 0.25rem;
+}
+
+.device-card.type-beltpack .device-role.unassigned,
+.device-card.type-basestation .device-role.unassigned {
+  background: rgba(255, 0, 0, 0.15);
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+/* ===== Header Row ===== */
+.device-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  border-bottom: 1px solid #333;
+  margin-bottom: 0.25rem;
+}
+
+.device-name {
+  font-size: 1rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+}
+
+.edit-icon {
+  margin-left: 0.5rem;
+  color: #bbb;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: color 0.2s ease;
+}
+
+.edit-icon:hover {
+  color: #3498db;
+}
+
+.device-state {
+  font-weight: bold;
+  font-size: 1rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+}
+
+.device-state.online { color: #2ecc71; }
+.device-state.offline { color: #e74c3c; }
+
+/* ===== Meta/Info Rows ===== */
+.device-meta-row,
+.device-info-row,
+.device-audio-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.device-role {
+  background: #2a2a2a;
+  color: #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+}
+
+#device-role-select.unassigned {
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+.battery-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 5rem;
+}
+
+/* ===== Battery ===== */
+.battery {
+  display: flex;
+  align-items: center;
+}
+
+.battery-body {
+  display: flex;
+  gap: 0.125rem;
+  border: 2px solid #aaa;
+  border-radius: 0.25rem;
+  padding: 0.125rem;
+  width: 2.25rem;
+  height: 0.875rem;
+  background-color: #222;
+  position: relative;
+}
+
+.battery-label {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #e74c3c;
+  width: 100%;
+  text-align: center;
+  animation: blink 1s infinite;
+  white-space: nowrap;
+  line-height: 0.875rem;
+}
+
+.battery-bar {
+  flex: 1;
+  background-color: #555;
+  border-radius: 0.125rem;
+  height: 100%;
+}
+
+.battery-bar.on { background-color: #2ecc71; }
+.battery.battery-warn .battery-bar.on { background-color: #f1c40f; }
+.battery.battery-critical .battery-bar.on {
+  background-color: #e74c3c;
+  animation: blink 1s infinite;
+}
+
+.battery-tip {
+  width: 0.25rem;
+  height: 0.5rem;
+  background-color: #aaa;
+  border-radius: 0.125rem;
+  margin-left: -1px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ===== Audio Row ===== */
+.device-audio-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.mic {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex: 1;
+}
+
+.mic-slider-input {
+  width: min(100%, 6rem);
+  appearance: none;
+  height: 0.25rem;
+  background: #444;
+  border-radius: 0.25rem;
+  outline: none;
+  cursor: pointer;
+}
+
+.mic-slider-input:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.mic-value,
+.hs-value {
+  font-variant-numeric: tabular-nums;
+  display: inline-block;
+  min-width: 3ch;
+  text-align: right;
+}
+
+/* ===== IP + WiFi ===== */
+.device-ip {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.device-wifi {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.device-wifi i {
+  font-size: 0.9rem;
+  color: #bbb;
+}
+
+.wifi-signal {
+  font-weight: bold;
+}
+
+.wifi-excellent { color: #2ecc71; }
+.wifi-good      { color: #f1c40f; }
+.wifi-weak      { color: #e67e22; }
+.wifi-poor      { color: #e74c3c; }
+.wifi-unknown   { color: #aaa; }
+
+/* ===== Device Status / Talk ===== */
+.device-data {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+}
+
+.device-data li {
+  margin-bottom: 0.375rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.talk {
+  font-style: normal;
+}
+
+/* ===== Modal ===== */
+#edit-modal, 
+#edit-modal * {
+  font-family: 'VeraMonoBold', 'Courier New', Courier, monospace !important;
+}
+
+.modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.modal.hidden { display: none; }
+
+.close {
+  position: absolute;
+  top: 1.25rem;
+  right: 2rem;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.modal-content.type-basestation #save-role-config {
+  background-color: #2ecc71;
+  color: white;
+}
+
+.modal-content.type-beltpack #save-role-config {
+  background-color: #3498db;
+  color: white;
+}
+
+#save-role-config {
+  padding: 0.25rem;
+  border: none;
+  border-radius: 0.25rem;
+  font-size: 0.95rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+#save-role-config:hover {
+  background-color: #27ae60;
+}
+
+.modal-content.type-basestation { background-color: #192c21; border-color: #2ecc71; }
+.modal-content.type-beltpack { background-color: #18222c; border-color: #3498db; }
+
+
+.modal-content {
+  max-height: 90vh;
+  height: auto;
+  padding: 1.25rem;
+  overflow-y: auto;
+  border-radius: 0.75rem;
+  background: #1c1c1c;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+  width: fit-content;
+  min-width: 32rem;
+  max-width: 95vw;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 1rem;
+}
+
+.modal-header > div {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.table-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.channel-role-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  table-layout: auto;
+}
+
+.channel-role-table th,
+.channel-role-table td {
+  border: 1px solid #444;
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.channel-role-table th {
+  color: #eee;
+  font-weight: 600;
+}
+
+.role-name {
+  text-align: left;
+  font-weight: 600;
+  color: #eee;
+}
+
+.role-desc {
+  text-align: left;
+  color: #aaa;
+  font-style: italic;
+}
+
+.toggle-box {
+  width: 16px;
+  height: 16px;
+  margin: auto;
+  border-radius: 4px;
+  background-color: #333;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.modal-content.type-basestation .toggle-box.selected {
+  background-color: #2ecc71;
+}
+
+.modal-content.type-beltpack .toggle-box.selected {
+  background-color: #3498db;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.modal-actions button {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 6px;
+  background: #007bff;
+  color: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.modal-actions button:hover {
+  background-color: #0056b3;
+}
+
+.modal-content.type-basestation #device-role-select {
+  background-color: #192c21;
+}
+
+.modal-content.type-beltpack #device-role-select {
+  background-color: #18222c;
+}
+
+#device-role-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  border: 1px solid #555;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='gray' height='16' viewBox='0 0 20 20' width='16' xmlns='http://www.w3.org/2000/svg'><path d='M7 7l3-3 3 3H7zm0 6h6l-3 3-3-3z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1rem;
+  color: #eee;
+  cursor: pointer;
+  transition: border 0.2s ease;
+}
+
+#device-role-select:focus {
+  border-color: #3498db;
+  outline: none;
+}
+
+#device-role-select option {
+  font-family: 'VeraMonoBold', 'Courier New', Courier, monospace;
+}
+
+.modern-close {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #aaa;
+  cursor: pointer;
+  transition: color 0.2s ease, transform 0.2s ease;
+  padding: 0.25rem 0.5rem;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.modern-close:hover {
+  color: #eee;
+}
+
+/* ===== Tooltip ===== */
+.tooltip {
+  position: absolute;
+  background: #222;
+  color: #eee;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 0.25rem;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 9999;
+  transition: opacity 0.1s ease;
+  opacity: 0;
+}
+
+.tooltip.visible { opacity: 1; }
+.hidden { display: none; }
+
+.no-devices {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #888;
+  font-size: 1.25rem;
+  text-align: center;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.hidden {
+  display: none !important;
+}

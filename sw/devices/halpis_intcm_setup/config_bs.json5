@@ -1,0 +1,76 @@
+{
+    // Device type: 'beltpack' or 'basestation'
+    device_type: 'basestation',
+
+    // Choose your network interface (e.g., wlan0, eth0)
+    network_interface: 'eth0',
+
+    // Number of intercom channels
+    channel_count: 8,
+
+    // Button lock settings
+    lock_buttons: [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+    ],
+
+    // Encoder rotation invert
+    encoder_rotation_invert: false,
+
+    // Audio level (0-150), warning keep low!
+    audio_level: 25,
+
+    // Microphone level (0-150)
+    mic_level: 90,
+
+    // MQTT Configuration
+    mqtt_server: '',
+    mqtt_port: 8883,
+    mqtt_keepalive: 60,
+    mqtt_user: '',
+    mqtt_pass: '',
+    tls_certificate_path: '',
+    mqtt_prefix: 'halpis_intcm/',
+
+    // Status update interval (in milliseconds)
+    status_interval_ms: 10000,
+
+    // Allow mic level to be changed over MQTT
+    allow_mic_level_change: true,
+
+    // Display settings: 
+    // Display type 'ssd1306' or 'sh1106'
+    display_type: 'ssd1306',
+    multi_talk_delay_ms: 500,
+    // 0-255 only a few levels available
+    display_brightness: 255,
+    // Enable screensaver
+    screensaver: false,
+    // Delay in seconds before screensaver starts
+    screensaver_delay: 180,
+    // Brightness of the screensaver
+    screensaver_brightness: 1,
+    font_path: '',
+
+    // Logging settings
+    log_level: 'WARNING',
+    log_to_file: false,
+    log_to_screen: true,
+    log_file: '',
+
+    // Headset
+    headset: false,
+    headset_audio_level: 80,
+    
+    // Neopixels
+    // Scale is 0-1
+    np_brightness: 0.06,
+    np_blink_rate_ms: 500,
+    np_post_talk_blink_ms: 1500,
+}

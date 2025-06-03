@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Device Status</title>
+
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+  <!-- Your custom styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}" />
+
+  <!-- Socket.IO and your JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.js"></script>
+  <script defer src="{{ url_for('static', filename='main.js') }}"></script>
+</head>
+
+<body>
+  <div id="device-list">
+    <div class="device-grid"></div>
+    <div id="no-devices-message" class="no-devices hidden">Waiting for devices…</div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="edit-modal" class="modal hidden">
+    <div id="modal-content" class="modal-content">
+      <div class="modal-header">
+        <div><strong>DEVICE:</strong> <span id="modal-device-name"></span></div>
+        <div>
+          <label for="device-role-select"><strong>ROLE:</strong></label>
+          <select id="device-role-select"></select>
+        </div>
+        <div class="modal-header-actions">
+          <button id="save-role-config" data-tooltip="Make sure your Mumble shortcuts match this channel setup.">Save</button>
+          <span id="close-modal" class="modern-close">&times;</span>
+        </div>
+      </div>
+  
+      <div class="table-wrapper">
+        <table class="channel-role-table">
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody id="role-channel-body">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+
+  <!-- Tooltip -->
+  <div id="custom-tooltip" class="tooltip hidden"></div>
+</body>
+</html>

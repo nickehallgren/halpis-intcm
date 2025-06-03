@@ -1,0 +1,91 @@
+---
+- name: Configure Static IP on Debian (NetworkManager or dhcpcd)
+  hosts: localhost
+  become: yes
+  gather_facts: yes
+
+  vars_prompt:
+    - name: static_ip
+      prompt: "Enter the static IP address (e.g., 192.168.1.100/24)"
+      private: no
+    - name: static_gw
+      prompt: "Enter the gateway IP address"
+      private: no
+    - name: static_dns
+      prompt: "Enter the DNS server(s), space-separated (e.g., 8.8.8.8 1.1.1.1)"
+      private: no
+
+  tasks:
+    - name: Validate that static_ip includes CIDR notation
+      assert:
+        that: "'/' in static_ip"
+        fail_msg: "The IP address must include CIDR notation (e.g., /24)."
+
+    - name: Detect if running in LXC container
+      set_fact:
+        is_lxc: "{{ ansible_virtualization_type == 'lxc' }}"
+
+    - name: Check if nmcli is available
+      command: which nmcli
+      register: nmcli_check
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check if dhcpcd is installed
+      stat:
+        path: /sbin/dhcpcd
+      register: dhcpcd_stat
+
+    - name: Set fact for using NetworkManager or dhcpcd
+      set_fact:
+        use_nmcli: "{{ nmcli_check.rc == 0 }}"
+        use_dhcpcd: "{{ dhcpcd_stat.stat.exists and nmcli_check.rc != 0 }}"
+
+    - name: Skip IP config if running in LXC container
+      debug:
+        msg: "Skipping static IP configuration because this is an LXC container."
+      when: is_lxc
+
+    - name: Get list of nmcli connections
+      command: nmcli -t -f NAME connection show
+      register: nmcli_connections
+      changed_when: false
+      when: use_nmcli and not is_lxc
+
+    - name: Set primary nmcli connection name
+      set_fact:
+        nmcli_conn_name: "{{ nmcli_connections.stdout_lines[0] | default('eth0') }}"
+      when: use_nmcli and not is_lxc
+
+    - name: Set static IP using NetworkManager (nmcli)
+      shell: |
+        nmcli con mod "{{ nmcli_conn_name }}" ipv4.addresses {{ static_ip }}
+        nmcli con mod "{{ nmcli_conn_name }}" ipv4.gateway {{ static_gw }}
+        nmcli con mod "{{ nmcli_conn_name }}" ipv4.dns "{{ static_dns }}"
+        nmcli con mod "{{ nmcli_conn_name }}" ipv4.method manual
+      args:
+        executable: /bin/bash
+      when: use_nmcli and not is_lxc
+
+    - name: Set static IP using dhcpcd.conf
+      blockinfile:
+        path: /etc/dhcpcd.conf
+        block: |
+          interface eth0
+          static ip_address={{ static_ip }}
+          static routers={{ static_gw }}
+          static domain_name_servers={{ static_dns }}
+        marker: "# {mark} ANSIBLE MANAGED BLOCK FOR STATIC IP"
+      when: use_dhcpcd and not is_lxc
+
+    - name: Notify user to reboot manually
+      debug:
+        msg: "Static IP configuration saved. Please reboot the system to apply the new network settings."
+      when: (use_nmcli or use_dhcpcd) and not is_lxc
+      run_once: true
+      delegate_to: localhost
+
+    - name: Add final newline for output separation
+      debug:
+        msg: ""
+      when: not is_lxc

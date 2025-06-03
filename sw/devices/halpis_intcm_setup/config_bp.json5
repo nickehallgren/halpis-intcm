@@ -1,0 +1,75 @@
+{
+    // Device type: 'beltpack' or 'basestation'
+    device_type: 'beltpack',
+
+    // Choose your network interface (e.g., wlan0, eth0)
+    network_interface: 'wlan0',
+
+    // Number of intercom channels
+    channel_count: 2,
+
+    // Button lock settings
+    lock_buttons: [
+        false,
+        false
+    ],
+
+    // Encoder rotation invert
+    encoder_rotation_invert: true,
+
+    // Audio level (0-100)
+    audio_level: 90,
+
+    // Microphone level (0-100)
+    mic_level: 90,
+
+    // MQTT Configuration
+    mqtt_server: '',
+    mqtt_port: 8883,
+    mqtt_keepalive: 60,
+    mqtt_user: '',
+    mqtt_pass: '',
+    tls_certificate_path: '',
+    mqtt_prefix: 'halpis_intcm/',
+
+    // Status update interval (in milliseconds)
+    status_interval_ms: 10000,
+
+    // Allow mic level to be changed over MQTT
+    allow_mic_level_change: true,
+
+    // Display settings: 
+    // Display type 'ssd1306' or 'sh1106'
+    display_type: 'sh1106',
+    multi_talk_delay_ms: 500,
+    // 0-255 only a few levels available
+    display_brightness: 255,
+    // Enable screensaver
+    screensaver: true,
+    // Delay in seconds before screensaver starts
+    screensaver_delay: 90,
+    // Brightness of the screensaver
+    screensaver_brightness: 1,
+    font_path: '',
+
+    // Logging settings
+    log_level: 'WARNING',
+    log_to_file: false,
+    log_to_screen: true,
+    log_file: '',
+
+    // ADS I2C Address
+    ads_i2c_address: 0x4a,
+
+    // Battery correction
+    battery_correction: 3.15,
+
+    // Battery warning on display
+    battery_warning: 6700,
+
+    // Battery too low, shutdown
+    battery_shutdown: 6500,
+
+    // Battery display icon or mV
+    battery_display: 'icon'
+}

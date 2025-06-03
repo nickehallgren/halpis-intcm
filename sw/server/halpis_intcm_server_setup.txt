@@ -1,0 +1,44 @@
+Login
+
+ONLY CT Debian Bookworm
+dpkg-reconfigure tzdata
+apt update
+apt install sudo ansible git -y
+adduser intercom
+usermod -aG sudo intercom
+Login as created user!
+
+
+
+
+
+
+sudo dpkg-reconfigure tzdata
+sudo apt update
+sudo apt install ansible git -y
+
+git clone https://github.com/nickehallgren/halpis-intcm.git
+
+cd halpis-intcm/sw/server/
+cp -R install ~/
+
+cd ~/install
+
+ansible-playbook -i "localhost," -c local set_static_ip_debian.yml --ask-become-pass
+
+REBOOT TO GET CORRECT IP
+
+LOGIN
+
+cd install
+ansible-playbook -i "localhost," -c local halpis_intcm_server_setup.yml --ask-become-pass
+
+Mumble password=R3plac3M3
+SuperUser password=Sup3R_USER
+intercom username=intercom
+intercom password=Intercom16
+
+TEST MOSQUITTO
+
+mosquitto_pub -h 127.0.0.1 --cafile ~/intercom/ca.crt -p 8883 -t "media/intercom/test" -m "Hello 2!" -r -u intercom -P Intercom16
+mosquitto_sub -h 127.0.0.1 --cafile ~/intercom/ca.crt -p 8883 -t "media/intercom/test" -u intercom -P Intercom16
