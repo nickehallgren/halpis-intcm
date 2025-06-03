@@ -1,0 +1,5 @@
+﻿Designator,Footprint,Quantity,Value,LCSC Part #
+"C1, C2",0805,2,"0,1uF",C1711
+F1,1206,1,1.5A,C7542963 
+U2,VSSOP-10_3x3mm_P0.5mm,1,SC,C105181
+U3,VSSOP-10_3x3mm_P0.5mm,1,MIC,C105181
