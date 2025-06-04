@@ -1456,7 +1456,7 @@ if __name__ == "__main__":
                 # Display status on displays
                 sleep(1)
                 if not mumble_started:
-                  intercom.last_interaction_time = int(time() * 1000) + 125
+                  intercom.last_interaction_time = int((time() + 125) * 1000)
                   if wait_for_mumble(timeout=120):
                       mumble_started = True
                       sleep(5)
