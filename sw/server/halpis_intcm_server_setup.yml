@@ -190,9 +190,9 @@
     - name: Set Intercom MQTT user password
       shell: |
         if [ ! -f /etc/mosquitto/pwfile ]; then
-          mosquitto_passwd -c -b /etc/mosquitto/pwfile {{ intercom_username }} {{ intercom_password }}
+          mosquitto_passwd -c -b /etc/mosquitto/pwfile "{{ intercom_username }}" "{{ intercom_password }}"
         else
-          mosquitto_passwd -b /etc/mosquitto/pwfile {{ intercom_username }} {{ intercom_password }}
+          mosquitto_passwd -b /etc/mosquitto/pwfile "{{ intercom_username }}" "{{ intercom_password }}"
         fi
 
     - name: Set permissions for pwfile
