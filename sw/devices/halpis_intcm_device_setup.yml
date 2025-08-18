@@ -230,6 +230,7 @@
           {{
             (
               ([ 'ADS1115' ] if device_type == 'beltpack' else [])
+              + ([ 'spidev' ] if device_type == 'basestation' else [])
               + [
                 'json5',
                 'luma.core',
