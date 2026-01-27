@@ -97,9 +97,12 @@
     - name: Install required packages
       apt:
         name:
+          - build-essential
+          - swig
           - flatpak
           - i2c-tools
           - jq
+          - liblgpio-dev
           - lightdm
           - lightdm-gtk-greeter
           - lxterminal
@@ -116,7 +119,6 @@
           - xserver-xorg-video-dummy
           - xfce4
           - xscreensaver
-          - zram-tools
         update_cache: yes
         state: present
 
@@ -236,7 +238,6 @@
                 'luma.core',
                 'luma.oled',
                 'paho-mqtt',
-                'pip',
                 'pyautogui',
                 'rpi-lgpio',
                 'setuptools'
@@ -473,40 +474,6 @@
           [Install]
           WantedBy=multi-user.target
       notify: Reload systemd
-
-    - name: Configure zram to use 50% of RAM and lz4
-      copy:
-        dest: /etc/default/zramswap
-        content: |
-          ALGO=lz4
-          PERCENT=50
-        owner: root
-        group: root
-        mode: '0644'
-
-    - name: Enable and start zramswap service
-      systemd:
-        name: zramswap
-        enabled: yes
-        state: started
-
-    - name: Disable dphys-swapfile swap service
-      systemd:
-        name: dphys-swapfile
-        enabled: no
-        state: stopped
-
-    - name: Set CONF_SWAPSIZE=0 in dphys-swapfile config
-      lineinfile:
-        path: /etc/dphys-swapfile
-        regexp: '^CONF_SWAPSIZE='
-        line: 'CONF_SWAPSIZE=0'
-        create: yes
-
-    - name: Remove existing swap file if it exists
-      file:
-        path: /var/swap
-        state: absent
 
     - name: Suppress .xsession-errors by redirecting X session output
       copy:
